@@ -385,6 +385,15 @@ function parseSheetData(rows) {
     if(!poza) return null;
     let horas=null;
     if(r[21]!==null&&r[21]!==undefined&&r[21]!==''){const h=parseFloat(r[21]);if(!isNaN(h))horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;}
+    // Convert Sheets time: decimal fraction (0.75=18:00) or string HH:MM
+    function fmtTime(v){
+      if(v===null||v===undefined||v==='')return null;
+      const s=String(v);
+      if(s.includes(':'))return s.slice(0,5);
+      const n=parseFloat(s);
+      if(!isNaN(n)&&n>=0&&n<1){const tm=Math.round(n*1440);const hh=Math.floor(tm/60)%24;const mm=tm%60;return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
+      return s.slice(0,5);
+    }
     let fi=null,mes=null;
     if(r[2]){const d=new Date(r[2]);if(!isNaN(d)){fi=d.toISOString().split('T')[0];mes=fi.slice(0,7);}else{fi=String(r[2]);mes=fi.slice(0,7);}}
     let ff=null;
@@ -393,7 +402,7 @@ function parseSheetData(rows) {
     if(r[25]!==undefined&&r[25]!==null&&r[25]!==''){const v=parseFloat(r[25]);if(!isNaN(v)){tm_v=v;tm_m=Math.max(0,(parseFloat(r[10])||0)-v);}}
     return {
       id:parseInt(r[0])||(i+1), poza, operario:r[6]||'', maquina:r[7]||'Mykon N200VLD', producto:r[8]||'Hielo en barra',
-      fecha_ini:fi, hora_ini:r[3]?String(r[3]).slice(0,5):null, fecha_fin:ff, hora_fin:r[5]?String(r[5]).slice(0,5):null, mes,
+      fecha_ini:fi, hora_ini:fmtTime(r[3]), fecha_fin:ff, hora_fin:fmtTime(r[5]), mes,
       cant_producir:parseFloat(r[9])||0, cant_producida:parseFloat(r[10])||0, estado:r[13]||'TERMINADO',
       tc_ini:r[19]!==null&&r[19]!==undefined&&r[19]!==''?parseFloat(r[19]):null,
       tc_fin:r[20]!==null&&r[20]!==undefined&&r[20]!==''?parseFloat(r[20]):null,
