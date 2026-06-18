@@ -393,13 +393,28 @@ function parseSheetData(rows) {
         horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;
       }
     }
-    // Always recalculate from date/time if both available (overrides col 21)
+    // Recalculate horas from fecha+hora (most reliable)
     try {
       const fi2=String(r[2]||'').trim(), hi2=String(r[3]||'').trim();
       const ff2=String(r[4]||'').trim(), hf2=String(r[5]||'').trim();
-      if(fi2&&hi2&&ff2&&hf2&&fi2.includes('-')&&hi2.includes(':')){
-        const dtI=new Date(fi2+'T'+hi2+':00');
-        const dtF=new Date(ff2+'T'+hf2+':00');
+      // Normalize date: could be YYYY-MM-DD or DD/MM/YYYY
+      function normDate(d){
+        if(!d)return'';
+        if(d.includes('-')&&d.indexOf('-')===4)return d; // already YYYY-MM-DD
+        if(d.includes('/')){const p=d.split('/');if(p.length===3)return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}
+        return d;
+      }
+      // Normalize time: HH:MM
+      function normTime(t){
+        if(!t)return'';
+        const m=String(t).match(/(\d{1,2}):(\d{2})/);
+        return m?m[1].padStart(2,'0')+':'+m[2]:'';
+      }
+      const nfi=normDate(fi2), nhi=normTime(hi2);
+      const nff=normDate(ff2), nhf=normTime(hf2);
+      if(nfi&&nhi&&nff&&nhf){
+        const dtI=new Date(nfi+'T'+nhi+':00');
+        const dtF=new Date(nff+'T'+nhf+':00');
         const diff=(dtF-dtI)/3600000;
         if(diff>0&&diff<300) horas=Math.round(diff*100)/100;
       }
@@ -435,8 +450,8 @@ function parseSheetData(rows) {
       id:parseInt(r[0])||(i+1), poza, operario:r[6]||'', maquina:r[7]||'Mykon N200VLD', producto:r[8]||'Hielo en barra',
       fecha_ini:fi, hora_ini:fmtTime(r[3]), fecha_fin:ff, hora_fin:fmtTime(r[5]), mes,
       cant_producir:parseFloat(r[9])||0, cant_producida:parseFloat(r[10])||0, estado:r[13]||'TERMINADO',
-      tc_ini:r[19]!==null&&r[19]!==undefined&&r[19]!==''?parseFloat(r[19]):null,
-      tc_fin:r[20]!==null&&r[20]!==undefined&&r[20]!==''?parseFloat(r[20]):null,
+      tc_ini:r[19]!==null&&r[19]!==undefined&&r[19]!==''&&!isNaN(parseFloat(r[19]))?parseFloat(r[19]):null,
+      tc_fin:r[20]!==null&&r[20]!==undefined&&r[20]!==''&&!isNaN(parseFloat(r[20]))?parseFloat(r[20]):null,
       horas_prod:horas, observacion:r[23]||'', tm_vendidas:tm_v, tm_merma:tm_m
     };
   }).filter(Boolean);
