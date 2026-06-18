@@ -385,13 +385,25 @@ function parseSheetData(rows) {
     if(!poza) return null;
     let horas=null;
     if(r[21]!==null&&r[21]!==undefined&&r[21]!==''){const h=parseFloat(r[21]);if(!isNaN(h))horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;}
-    // Convert Sheets time: decimal fraction (0.75=18:00) or string HH:MM
+    // Convert Sheets time: handles decimal, date string 1899-12-30THH:MM, or HH:MM
     function fmtTime(v){
       if(v===null||v===undefined||v==='')return null;
-      const s=String(v);
-      if(s.includes(':'))return s.slice(0,5);
+      const s=String(v).trim();
+      // Format: "1899-12-30T18:50:00.000Z" or "1899-12-30 18:50:00" — extract HH:MM
+      if(s.includes('1899')||s.includes('T')){
+        const m=s.match(/(\d{2}):(\d{2})/);
+        if(m)return m[1]+':'+m[2];
+      }
+      // Already HH:MM
+      if(s.match(/^\d{1,2}:\d{2}/))return s.slice(0,5);
+      // Decimal fraction of day (0.0 - 1.0)
       const n=parseFloat(s);
-      if(!isNaN(n)&&n>=0&&n<1){const tm=Math.round(n*1440);const hh=Math.floor(tm/60)%24;const mm=tm%60;return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
+      if(!isNaN(n)&&n>=0&&n<=1){
+        const tm=Math.round(n*1440);
+        const hh=Math.floor(tm/60)%24;
+        const mm=tm%60;
+        return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+      }
       return s.slice(0,5);
     }
     let fi=null,mes=null;
