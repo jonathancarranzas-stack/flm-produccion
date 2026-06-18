@@ -384,21 +384,26 @@ function parseSheetData(rows) {
     let poza = pRaw.includes('1')?'POZA 1':pRaw.includes('2')?'POZA 2':pRaw.includes('3')?'POZA 3':null;
     if(!poza) return null;
     let horas=null;
-    // Col 21 = HORAS_PROD — can be decimal, "HH:MM", or "1899-12-30T..." date string
+    // Calculate horas_prod from fecha+hora ini/fin (more reliable than col 21)
+    // Try col 21 first as number
     if(r[21]!==null&&r[21]!==undefined&&r[21]!==''){
       const hv=String(r[21]).trim();
-      if(hv.includes('1899')||hv.includes('T')){
-        // Date object serialized — extract HH:MM and convert to hours
-        const m=hv.match(/(\d{1,2}):(\d{2})/);
-        if(m){const hh=parseInt(m[1]),mm=parseInt(m[2]);horas=Math.round((hh+mm/60)*100)/100;}
-      } else if(hv.includes(':')){
-        // HH:MM string
-        const p=hv.split(':');horas=Math.round((parseInt(p[0])+parseInt(p[1])/60)*100)/100;
-      } else {
-        const h=parseFloat(hv);
-        if(!isNaN(h))horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;
+      const h=parseFloat(hv);
+      if(!isNaN(h)&&h>0&&h<200){
+        horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;
       }
     }
+    // Always recalculate from date/time if both available (overrides col 21)
+    try {
+      const fi2=String(r[2]||'').trim(), hi2=String(r[3]||'').trim();
+      const ff2=String(r[4]||'').trim(), hf2=String(r[5]||'').trim();
+      if(fi2&&hi2&&ff2&&hf2&&fi2.includes('-')&&hi2.includes(':')){
+        const dtI=new Date(fi2+'T'+hi2+':00');
+        const dtF=new Date(ff2+'T'+hf2+':00');
+        const diff=(dtF-dtI)/3600000;
+        if(diff>0&&diff<300) horas=Math.round(diff*100)/100;
+      }
+    } catch(ex){}
     // Convert Sheets time: handles decimal, date string 1899-12-30THH:MM, or HH:MM
     function fmtTime(v){
       if(v===null||v===undefined||v==='')return null;
