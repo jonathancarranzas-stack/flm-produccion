@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Control Producción — FLM Pisco</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#13151f;--panel:#1a1d2e;--panel2:#1e2133;--border:#272b44;
+  --accent:#00d4ff;--p1:#00d4ff;--p2:#ff6b35;--p3:#a78bfa;
+  --ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--merma:#f97316;
+  --text:#e2e8f0;--muted:#64748b;--label:#94a3b8;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+header{background:#0f1120;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#0057ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.brand h1{font-size:14px;font-weight:700;color:#fff}
+.brand p{font-size:9px;color:var(--muted);font-family:var(--mono)}
+.sync-status{font-size:10px;font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.sync-dot.loading{background:var(--warn)}
+.sync-dot.error{background:var(--danger)}
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.kpi{background:var(--panel2);padding:10px 14px}
+.kpi-lbl{font-size:9px;font-family:var(--mono);color:var(--muted);letter-spacing:.7px;text-transform:uppercase;margin-bottom:3px}
+.kpi-val{font-size:20px;font-weight:700;font-family:var(--mono);line-height:1.1}
+.kpi-sub{font-size:9px;color:var(--muted);margin-top:1px}
+.kv-b{color:var(--accent)}.kv-o{color:#ff6b35}.kv-g{color:var(--ok)}.kv-r{color:var(--danger)}.kv-m{color:var(--merma)}.kv-w{color:var(--warn)}
+.tab-bar{display:flex;background:#0f1120;border-bottom:2px solid var(--border);overflow-x:auto}
+.tab{padding:10px 18px;font-size:11px;font-family:var(--mono);color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tpage{display:none}.tpage.active{display:block}
+.toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.search-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);width:180px}
+.search-box:focus{outline:none;border-color:var(--accent)}
+.fsel{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--text);cursor:pointer}
+.fsel:focus{outline:none;border-color:var(--accent)}
+.btn{border-radius:6px;padding:7px 14px;font-size:11px;font-family:var(--mono);cursor:pointer;border:none;display:flex;align-items:center;gap:5px;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-success{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:var(--ok)}
+.btn-ghost{background:var(--panel);border:1px solid var(--border);color:var(--label)}
+.btn-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--danger)}
+.count-lbl{font-size:10px;font-family:var(--mono);color:var(--muted);margin-left:auto}
+.table-wrap{overflow-x:auto;max-height:calc(100vh - 260px);overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:#0f1120;padding:8px;text-align:left;font-size:9px;font-family:var(--mono);color:var(--muted);letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:5;cursor:pointer;user-select:none}
+thead th:hover{color:var(--text)}
+tbody tr:hover{background:rgba(0,212,255,.03)}
+tbody td{padding:6px 8px;border-bottom:1px solid rgba(39,43,68,.5);vertical-align:middle;white-space:nowrap}
+.row-acts{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+tbody tr:hover .row-acts{opacity:1}
+.act-btn{background:none;border:none;cursor:pointer;padding:2px 5px;border-radius:3px;font-size:13px}
+.act-btn:hover{background:rgba(255,255,255,.08)}
+.form-wrap{padding:16px;max-width:700px;margin:0 auto}
+.form-section{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px}
+.form-title{font-size:10px;font-family:var(--mono);color:var(--accent);letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid.g3{grid-template-columns:1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:9px;font-family:var(--mono);color:var(--label);letter-spacing:.5px;text-transform:uppercase}
+.field input,.field select{background:#0d1018;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--sans);width:100%}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.08)}
+.field input[readonly]{color:var(--muted);background:#080a12;cursor:default}
+.field input.ig{border-color:rgba(163,230,53,.4);color:#a3e635;font-weight:600}
+.field input.im{border-color:rgba(249,115,22,.35);color:var(--merma);font-weight:600;background:#140d08}
+.merma-box{background:#140d08;border:1px solid rgba(249,115,22,.25);border-radius:6px;padding:10px 12px;margin-top:8px}
+.merma-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}
+.merma-fill{height:100%;border-radius:3px;transition:width .3s}
+.bal-row{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono)}
+.hint{font-size:10px;font-family:var(--mono);color:var(--muted)}
+.hint.ok{color:var(--ok)}.hint.err{color:var(--danger)}
+.form-actions{display:flex;gap:10px;margin-top:14px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.chart-card{background:var(--panel2);padding:18px}
+.chart-title{font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-bottom:12px;display:flex;justify-content:space-between}
+.chart-badge{font-size:9px;color:var(--accent);background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.15);padding:2px 7px;border-radius:3px}
+.cw{height:210px;position:relative}
+.cdiv{height:1px;background:var(--border)}
+.tp1{background:rgba(0,212,255,.08);color:var(--p1);border:1px solid rgba(0,212,255,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.tp2{background:rgba(255,107,53,.08);color:var(--p2);border:1px solid rgba(255,107,53,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.tp3{background:rgba(167,139,250,.08);color:var(--p3);border:1px solid rgba(167,139,250,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.tok{background:rgba(34,197,94,.08);color:var(--ok);border:1px solid rgba(34,197,94,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.twa{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.tda{background:rgba(239,68,68,.08);color:var(--danger);border:1px solid rgba(239,68,68,.2);border-radius:3px;padding:1px 5px;font-size:9px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:10px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;padding:20px}
+.modal-title{font-size:13px;font-family:var(--mono);color:var(--accent);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-grid .s2{grid-column:1/3}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-family:var(--mono);font-size:12px;z-index:400;transform:translateY(100px);opacity:0;transition:all .3s;max-width:340px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(34,197,94,.4);color:var(--ok)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--danger)}
+.toast.warn{border-color:rgba(245,158,11,.4);color:var(--warn)}
+.spinner-inline{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media(max-width:600px){.form-grid,.form-grid.g3,.modal-grid,.charts-grid{grid-template-columns:1fr}.modal-grid .s2{grid-column:1}.kpi-strip{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🧊</div>
+    <div>
+      <h1>Control de Producción · Frío La Merced · Pisco</h1>
+      <p>MYKON N200VLD &nbsp;·&nbsp; GOOGLE SHEETS EN TIEMPO REAL</p>
+    </div>
+  </div>
+  <div class="sync-status">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-txt">Iniciando...</span>
+    <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px;margin-left:8px" onclick="loadData()">↺ Actualizar</button>
+  </div>
+</header>
+
+<div class="kpi-strip">
+  <div class="kpi"><div class="kpi-lbl">Órdenes</div><div class="kpi-val kv-b" id="kpi-ord">—</div><div class="kpi-sub">registradas</div></div>
+  <div class="kpi"><div class="kpi-lbl">TM Producidas</div><div class="kpi-val kv-o" id="kpi-prod">—</div><div class="kpi-sub">acumulado</div></div>
+  <div class="kpi"><div class="kpi-lbl">TM Vendidas</div><div class="kpi-val kv-g" id="kpi-vend">—</div><div class="kpi-sub">despachadas</div></div>
+  <div class="kpi"><div class="kpi-lbl">TM Merma</div><div class="kpi-val kv-m" id="kpi-merma">—</div><div class="kpi-sub">no vendida</div></div>
+  <div class="kpi"><div class="kpi-lbl">% Aprovech.</div><div class="kpi-val kv-w" id="kpi-apro">—</div><div class="kpi-sub">vendido/prod.</div></div>
+  <div class="kpi"><div class="kpi-lbl">Ciclo prom.</div><div class="kpi-val kv-b" id="kpi-hprom">—</div><div class="kpi-sub">horas/carga</div></div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" onclick="switchTab('registros',this)">📋 REGISTROS</div>
+  <div class="tab" onclick="switchTab('nueva',this)">➕ NUEVA ORDEN</div>
+  <div class="tab" onclick="switchTab('produccion',this)">📦 PRODUCCIÓN</div>
+  <div class="tab" onclick="switchTab('mermas',this)">🔥 MERMAS</div>
+  <div class="tab" onclick="switchTab('temperaturas',this)">🌡 TEMPERATURAS</div>
+</div>
+
+<!-- REGISTROS -->
+<div id="tpage-registros" class="tpage active">
+  <div class="toolbar">
+    <input class="search-box" id="search" placeholder="🔍 Buscar..." oninput="applyFilters()">
+    <select class="fsel" id="fil-poza" onchange="applyFilters()">
+      <option value="">Todas las pozas</option>
+      <option>POZA 1</option><option>POZA 2</option><option>POZA 3</option>
+    </select>
+    <select class="fsel" id="fil-estado" onchange="applyFilters()">
+      <option value="">Todos los estados</option>
+      <option>TERMINADO</option><option>EN PROCESO</option><option>CANCELADO</option>
+    </select>
+    <select class="fsel" id="fil-mes" onchange="applyFilters()">
+      <option value="">Todos los meses</option>
+    </select>
+    <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="clearFilters()">✕ Limpiar</button>
+    <span class="count-lbl" id="count-lbl">— registros</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>POZA</th><th>FECHA INI.</th><th>HORA INI.</th>
+        <th>FECHA FIN</th><th>HORA FIN</th><th>HORAS</th><th>OPERARIO</th>
+        <th>TM PROD.</th><th>TM VEND. ✎</th><th>TM MERMA</th>
+        <th>% APROV.</th><th>BAL.</th><th>T°INI</th><th>T°FIN</th><th>ΔT</th>
+        <th>ESTADO</th><th>OBS.</th><th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NUEVA ORDEN -->
+<div id="tpage-nueva" class="tpage">
+  <div class="form-wrap">
+    <div class="form-section">
+      <div class="form-title">📋 DATOS DE LA ORDEN</div>
+      <div class="form-grid g3">
+        <div class="field"><label>Poza / Celda *</label>
+          <select id="f-poza"><option value="">— Seleccionar —</option><option>POZA 1</option><option>POZA 2</option><option>POZA 3</option></select>
+        </div>
+        <div class="field"><label>Máquina</label><input value="Mykon N200VLD" readonly></div>
+        <div class="field"><label>Operario *</label>
+          <select id="f-operario"><option value="">— Seleccionar —</option><option>Jorge Ñiquin</option><option>Lucio Paredes</option><option>Yamir Hernandez</option><option>Otro</option></select>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label>Fecha inicio *</label><input id="f-fi" type="date"></div>
+        <div class="field"><label>Hora inicio</label><input id="f-hi" type="time" oninput="calcHoras()"></div>
+        <div class="field"><label>Fecha fin</label><input id="f-ff" type="date" oninput="calcHoras()"></div>
+        <div class="field"><label>Hora fin</label><input id="f-hf" type="time" oninput="calcHoras()"></div>
+      </div>
+      <div class="form-grid g3" style="margin-top:10px">
+        <div class="field"><label>Horas ciclo (auto)</label><input id="f-horas" readonly placeholder="calculado"></div>
+        <div class="field"><label>T° inicio (°C)</label><input id="f-tci" type="number" step="0.1" placeholder="-5.0"></div>
+        <div class="field"><label>T° final (°C)</label><input id="f-tcf" type="number" step="0.1" placeholder="-14.0"></div>
+      </div>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label>Estado</label>
+          <select id="f-estado"><option>TERMINADO</option><option>EN PROCESO</option><option>CANCELADO</option></select>
+        </div>
+        <div class="field"><label>Observación</label><input id="f-obs" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-title">📦 PRODUCCIÓN, VENTAS Y MERMA</div>
+      <div class="form-grid">
+        <div class="field"><label>Producto</label><input value="Hielo en barra" readonly></div>
+        <div class="field"><label>TM a producir</label><input id="f-cprod" type="number" min="0" max="55" placeholder="55" oninput="if(this.value>55)this.value=55"></div>
+        <div class="field"><label>TM producidas *</label><input id="f-creal" type="number" min="0" max="55" placeholder="55" oninput="if(this.value>55)this.value=55;calcMerma()"></div>
+        <div class="field"><label>TM vendidas / despachadas ✎</label><input id="f-vend" type="number" min="0" step="0.5" placeholder="ej. 30" class="ig" oninput="calcMerma()"></div>
+      </div>
+      <div class="merma-box">
+        <div class="bal-row">
+          <span style="color:var(--muted)">TM MERMA (pérdida)</span>
+          <span id="f-merma-val" style="color:var(--merma);font-size:15px;font-weight:700">—</span>
+        </div>
+        <div class="merma-bar"><div class="merma-fill" id="merma-fill" style="width:0%"></div></div>
+        <div class="bal-row" style="margin-top:4px">
+          <span id="bal-hint" class="hint">Ventas + Merma = TM Producidas</span>
+          <span id="bal-eq" style="font-family:var(--mono);font-size:10px;color:var(--muted)">—</span>
+        </div>
+      </div>
+    </div>
+    <div id="form-msg" style="font-size:11px;font-family:var(--mono);min-height:18px;margin-bottom:8px;text-align:center"></div>
+    <div class="form-actions">
+      <button class="btn btn-success" style="flex:1;justify-content:center;padding:12px" onclick="guardarOrden()">
+        💾 GUARDAR EN GOOGLE SHEETS
+      </button>
+      <button class="btn btn-ghost" onclick="limpiarForm()">✕ Limpiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCCIÓN -->
+<div id="tpage-produccion" class="tpage">
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">⏱ Ciclo por orden (h)<span class="chart-badge" id="b-ciclo">—</span></div><div class="cw"><canvas id="ch-ciclo"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">📦 TM producidas por mes<span class="chart-badge" id="b-mes">—</span></div><div class="cw"><canvas id="ch-mes"></canvas></div></div>
+  </div>
+  <div class="cdiv"></div>
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">⚡ Distribución ciclos<span class="chart-badge">estándar 24h</span></div><div class="cw"><canvas id="ch-desv"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">📊 TM acumulado por poza<span class="chart-badge">total</span></div><div class="cw"><canvas id="ch-poza"></canvas></div></div>
+  </div>
+</div>
+
+<!-- MERMAS -->
+<div id="tpage-mermas" class="tpage">
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">🔥 Producidas vs Vendidas vs Merma<span class="chart-badge" id="b-comp">—</span></div><div class="cw"><canvas id="ch-comp"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">✅ % Aprovechamiento por poza<span class="chart-badge">ventas/prod.</span></div><div class="cw"><canvas id="ch-apro"></canvas></div></div>
+  </div>
+  <div class="cdiv"></div>
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">📉 TM merma por mes<span class="chart-badge" id="b-mmes">—</span></div><div class="cw"><canvas id="ch-mmes"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">📈 Tendencia % aprovechamiento<span class="chart-badge">mensual</span></div><div class="cw"><canvas id="ch-trend"></canvas></div></div>
+  </div>
+</div>
+
+<!-- TEMPERATURAS -->
+<div id="tpage-temperaturas" class="tpage">
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">🌡 T° inicio vs fin por poza<span class="chart-badge">°C promedio</span></div><div class="cw"><canvas id="ch-temp"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">❄ ΔT mensual (fin − inicio)<span class="chart-badge">°C promedio</span></div><div class="cw"><canvas id="ch-delta"></canvas></div></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Orden <span id="m-id">#—</span><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-grid">
+      <div class="field"><label>Poza</label><select id="m-poza"><option>POZA 1</option><option>POZA 2</option><option>POZA 3</option></select></div>
+      <div class="field"><label>Operario</label><select id="m-operario"><option value="">—</option><option>Jorge Ñiquin</option><option>Lucio Paredes</option><option>Yamir Hernandez</option><option>Otro</option></select></div>
+      <div class="field"><label>Fecha inicio</label><input id="m-fi" type="date"></div>
+      <div class="field"><label>Hora inicio</label><input id="m-hi" type="time"></div>
+      <div class="field"><label>Fecha fin</label><input id="m-ff" type="date"></div>
+      <div class="field"><label>Hora fin</label><input id="m-hf" type="time" oninput="calcModalHoras()"></div>
+      <div class="field"><label>Horas ciclo</label><input id="m-horas" readonly></div>
+      <div class="field"><label>Estado</label><select id="m-estado"><option>TERMINADO</option><option>EN PROCESO</option><option>CANCELADO</option></select></div>
+      <div class="field"><label>T° inicio</label><input id="m-tci" type="number" step="0.1"></div>
+      <div class="field"><label>T° final</label><input id="m-tcf" type="number" step="0.1"></div>
+      <div class="field"><label>TM producidas</label><input id="m-creal" type="number" min="0" max="55" oninput="if(this.value>55)this.value=55;calcModalMerma()"></div>
+      <div class="field"><label>TM vendidas ✎</label><input id="m-vend" type="number" min="0" step="0.5" class="ig" oninput="calcModalMerma()"></div>
+      <div class="field"><label>TM merma (auto)</label><input id="m-merma" readonly class="im"></div>
+      <div class="field s2"><label>Observación</label><input id="m-obs"></div>
+    </div>
+    <div class="merma-box" style="margin-top:10px">
+      <div class="bal-row"><span style="color:var(--muted);font-size:10px">BALANCE</span><span id="m-bal-eq" style="font-family:var(--mono);font-size:11px;color:var(--muted)">—</span></div>
+      <div id="m-bal-hint" style="font-size:10px;font-family:var(--mono);color:var(--ok);margin-top:4px">—</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteFromModal()">🗑 Eliminar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="saveModal()">💾 Guardar en Sheets</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzi2cQY7ne0uXgixi7ckZ8Fpv0ASqLTGISuVpQVbWFD4AoW_utQ8NisbQdMohqYMMdJTg/exec';
+const POZAS = ['POZA 1','POZA 2','POZA 3'];
+const COLORS = {'POZA 1':'#00d4ff','POZA 2':'#ff6b35','POZA 3':'#a78bfa'};
+const LBL = {'POZA 1':'P1','POZA 2':'P2','POZA 3':'P3'};
+const ML = {'01':'ENE','02':'FEB','03':'MAR','04':'ABR','05':'MAY','06':'JUN','07':'JUL','08':'AGO','09':'SEP','10':'OCT','11':'NOV','12':'DIC'};
+const FM = m => { if(!m)return''; const[y,mm]=m.split('-'); return(ML[mm]||mm)+' '+y.slice(2); };
+const avg = arr => { const v=arr.filter(x=>x!==null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+
+let RECORDS = [];
+let sortCol='id', sortDir=-1, editId=null, CH={};
+
+/* ══ JSONP — soluciona el problema CORS con Apps Script ══ */
+function jsonpCall(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    const url = new URL(API);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : v));
+    url.searchParams.set('callback', cbName);
+    url.searchParams.set('t', Date.now()); // evitar caché
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout — revisa tu conexión a internet'));
+    }, 15000);
+
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('Error de red')); };
+    script.src = url.toString();
+    document.head.appendChild(script);
+
+    function cleanup() { clearTimeout(timer); delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
+  });
+}
+
+function setSyncStatus(state, txt) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + state;
+  document.getElementById('sync-txt').textContent = txt;
+}
+
+async function loadData() {
+  setSyncStatus('loading', 'Cargando datos...');
+  try {
+    const res = await jsonpCall({ action: 'getAll' });
+    if(!res.ok) throw new Error(res.error || 'Error del servidor');
+    RECORDS = parseSheetData(res.data);
+    buildMesFilter();
+    applyFilters();
+    updateKPIs();
+    setSyncStatus('', 'Sincronizado · ' + new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}));
+    toast('✅ ' + RECORDS.length + ' registros cargados', 'ok');
+  } catch(e) {
+    setSyncStatus('error', 'Error: ' + e.message);
+    toast('❌ ' + e.message, 'err');
+  }
+}
+
+async function apiAction(params) {
+  setSyncStatus('loading', 'Guardando...');
+  try {
+    const res = await jsonpCall(params);
+    if(!res.ok) throw new Error(res.error || 'Error al guardar');
+    setSyncStatus('', 'Guardado · ' + new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}));
+    return true;
+  } catch(e) {
+    setSyncStatus('error', 'Error: ' + e.message);
+    toast('❌ ' + e.message, 'err');
+    return false;
+  }
+}
+
+function parseSheetData(rows) {
+  if(!rows||rows.length<2) return [];
+  return rows.slice(1).map((r,i) => {
+    if(!r[0]||!r[1]) return null;
+    const pRaw = String(r[1]).trim().toUpperCase();
+    let poza = pRaw.includes('1')?'POZA 1':pRaw.includes('2')?'POZA 2':pRaw.includes('3')?'POZA 3':null;
+    if(!poza) return null;
+    let horas=null;
+    if(r[21]!==null&&r[21]!==undefined&&r[21]!==''){const h=parseFloat(r[21]);if(!isNaN(h))horas=h<5?Math.round(h*24*100)/100:Math.round(h*100)/100;}
+    let fi=null,mes=null;
+    if(r[2]){const d=new Date(r[2]);if(!isNaN(d)){fi=d.toISOString().split('T')[0];mes=fi.slice(0,7);}else{fi=String(r[2]);mes=fi.slice(0,7);}}
+    let ff=null;
+    if(r[4]){const d=new Date(r[4]);if(!isNaN(d))ff=d.toISOString().split('T')[0];else ff=String(r[4]);}
+    let tm_v=null,tm_m=null;
+    if(r[25]!==undefined&&r[25]!==null&&r[25]!==''){const v=parseFloat(r[25]);if(!isNaN(v)){tm_v=v;tm_m=Math.max(0,(parseFloat(r[10])||0)-v);}}
+    return {
+      id:parseInt(r[0])||(i+1), poza, operario:r[6]||'', maquina:r[7]||'Mykon N200VLD', producto:r[8]||'Hielo en barra',
+      fecha_ini:fi, hora_ini:r[3]?String(r[3]).slice(0,5):null, fecha_fin:ff, hora_fin:r[5]?String(r[5]).slice(0,5):null, mes,
+      cant_producir:parseFloat(r[9])||0, cant_producida:parseFloat(r[10])||0, estado:r[13]||'TERMINADO',
+      tc_ini:r[19]!==null&&r[19]!==undefined&&r[19]!==''?parseFloat(r[19]):null,
+      tc_fin:r[20]!==null&&r[20]!==undefined&&r[20]!==''?parseFloat(r[20]):null,
+      horas_prod:horas, observacion:r[23]||'', tm_vendidas:tm_v, tm_merma:tm_m
+    };
+  }).filter(Boolean);
+}
+
+/* ══ FILTROS ══ */
+function buildMesFilter() {
+  const meses=[...new Set(RECORDS.map(r=>r.mes).filter(Boolean))].sort();
+  const sel=document.getElementById('fil-mes'), cur=sel.value;
+  sel.innerHTML='<option value="">Todos los meses</option>';
+  meses.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=FM(m);sel.appendChild(o);});
+  if(cur) sel.value=cur;
+}
+
+function getFiltered() {
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  const fp=document.getElementById('fil-poza').value, fe=document.getElementById('fil-estado').value, fm=document.getElementById('fil-mes').value;
+  return [...RECORDS].filter(r=>{
+    if(fp&&r.poza!==fp)return false;
+    if(fe&&r.estado!==fe)return false;
+    if(fm&&r.mes!==fm)return false;
+    if(q){const h=[r.poza,r.fecha_ini,r.estado,r.observacion,r.operario,String(r.id)].join(' ').toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  }).sort((a,b)=>{const va=a[sortCol]??'',vb=b[sortCol]??'';return(va>vb?1:va<vb?-1:0)*sortDir;});
+}
+
+function applyFilters(){const f=getFiltered();document.getElementById('count-lbl').textContent=f.length+' de '+RECORDS.length+' registros';renderTable(f);}
+function clearFilters(){document.getElementById('search').value='';document.getElementById('fil-poza').value='';document.getElementById('fil-estado').value='';document.getElementById('fil-mes').value='';applyFilters();}
+
+function pozaTag(p){const c=p==='POZA 1'?'tp1':p==='POZA 2'?'tp2':'tp3';return`<span class="${c}">${p}</span>`;}
+function estadoTag(e){const c=e==='TERMINADO'?'tok':e==='EN PROCESO'?'twa':'tda';return`<span class="${c}">${e}</span>`;}
+
+function renderTable(rows) {
+  const tbody=document.getElementById('tbody');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono)">Sin registros</td></tr>';return;}
+  tbody.innerHTML=rows.map(r=>{
+    const dt=r.tc_ini!==null&&r.tc_fin!==null?(r.tc_fin-r.tc_ini).toFixed(1)+'°':'—';
+    const apro=r.tm_vendidas!==null&&r.cant_producida>0?(r.tm_vendidas/r.cant_producida*100).toFixed(0)+'%':'—';
+    const apoC=r.tm_vendidas!==null?(parseFloat(apro)>=90?'var(--ok)':parseFloat(apro)>=70?'var(--warn)':'var(--danger)'):'var(--muted)';
+    const balOk=r.tm_vendidas!==null&&Math.abs((r.tm_vendidas+(r.tm_merma||0))-r.cant_producida)<0.1;
+    const bal=r.tm_vendidas!==null?(balOk?'<span style="color:var(--ok)">✅</span>':'<span style="color:var(--warn)">⚠</span>'):'—';
+    return `<tr>
+      <td style="font-family:var(--mono);color:var(--muted)">${r.id}</td>
+      <td>${pozaTag(r.poza)}</td>
+      <td style="font-family:var(--mono)">${r.fecha_ini||'—'}</td>
+      <td style="font-family:var(--mono)">${r.hora_ini||'—'}</td>
+      <td style="font-family:var(--mono)">${r.fecha_fin||'—'}</td>
+      <td style="font-family:var(--mono)">${r.hora_fin||'—'}</td>
+      <td style="font-family:var(--mono);color:${r.horas_prod>30?'var(--warn)':'var(--text)'}">${r.horas_prod?r.horas_prod.toFixed(1)+'h':'—'}</td>
+      <td style="color:var(--muted)">${r.operario||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:600">${r.cant_producida}</td>
+      <td style="color:var(--ok);font-weight:600;font-family:var(--mono)">${r.tm_vendidas!==null?r.tm_vendidas.toFixed(1):'<span style="color:var(--muted);font-style:italic">—</span>'}</td>
+      <td style="color:var(--merma);font-weight:600;font-family:var(--mono)">${r.tm_merma!==null?r.tm_merma.toFixed(1):'—'}</td>
+      <td style="font-family:var(--mono);color:${apoC}">${apro}</td>
+      <td style="text-align:center">${bal}</td>
+      <td style="font-family:var(--mono);color:#4dabf7">${r.tc_ini!==null?r.tc_ini.toFixed(1)+'°':'—'}</td>
+      <td style="font-family:var(--mono);color:var(--p3)">${r.tc_fin!==null?r.tc_fin.toFixed(1)+'°':'—'}</td>
+      <td style="font-family:var(--mono);color:var(--accent)">${dt}</td>
+      <td>${estadoTag(r.estado)}</td>
+      <td style="color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${r.observacion||'—'}</td>
+      <td><div class="row-acts">
+        <button class="act-btn" onclick="openModal(${r.id})" title="Editar">✏️</button>
+        <button class="act-btn" onclick="confirmDelete(${r.id})" title="Eliminar" style="color:var(--danger)">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateKPIs() {
+  const term=RECORDS.filter(r=>r.estado==='TERMINADO');
+  const tp=term.reduce((s,r)=>s+(r.cant_producida||0),0);
+  const wv=term.filter(r=>r.tm_vendidas!==null);
+  const tv=wv.reduce((s,r)=>s+(r.tm_vendidas||0),0);
+  const tm=wv.reduce((s,r)=>s+(r.tm_merma||0),0);
+  const ap=wv.length&&tp>0?(tv/tp*100).toFixed(1)+'%':'—';
+  const vh=term.filter(r=>r.horas_prod>0);
+  const hp=vh.length?(vh.reduce((s,r)=>s+r.horas_prod,0)/vh.length).toFixed(1)+'h':'—';
+  document.getElementById('kpi-ord').textContent=RECORDS.length;
+  document.getElementById('kpi-prod').textContent=tp.toLocaleString('es-PE');
+  document.getElementById('kpi-vend').textContent=wv.length?tv.toLocaleString('es-PE'):'—';
+  document.getElementById('kpi-merma').textContent=wv.length?tm.toFixed(0):'—';
+  document.getElementById('kpi-apro').textContent=ap;
+  document.getElementById('kpi-hprom').textContent=hp;
+}
+
+/* ══ FORMULARIO ══ */
+function calcHoras(){
+  const fi=document.getElementById('f-fi').value,hi=document.getElementById('f-hi').value;
+  const ff=document.getElementById('f-ff').value,hf=document.getElementById('f-hf').value;
+  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;document.getElementById('f-horas').value=d>0?d.toFixed(2)+' h':'—';}
+}
+
+function calcMerma(){
+  const prod=parseFloat(document.getElementById('f-creal').value);
+  const vend=parseFloat(document.getElementById('f-vend').value);
+  const mv=document.getElementById('f-merma-val'),fill=document.getElementById('merma-fill');
+  const hint=document.getElementById('bal-hint'),eq=document.getElementById('bal-eq');
+  if(!isNaN(prod)&&prod>0&&!isNaN(vend)){
+    const m=Math.max(0,prod-vend),pct=Math.min(100,m/prod*100);
+    mv.textContent=m.toFixed(1)+' TM';
+    fill.style.width=pct+'%';fill.style.background=pct<=10?'var(--ok)':pct<=30?'var(--warn)':'var(--danger)';
+    const ok=Math.abs((vend+m)-prod)<0.01;
+    eq.textContent=vend.toFixed(1)+' + '+m.toFixed(1)+' = '+(vend+m).toFixed(1);
+    hint.textContent=ok?'✅ Balance correcto':'⚠ Ventas no puede superar producción';
+    hint.className='hint '+(ok?'ok':'err');
+  } else {mv.textContent='—';fill.style.width='0%';hint.textContent='Ventas + Merma = TM Producidas';hint.className='hint';eq.textContent='—';}
+}
+
+async function guardarOrden(){
+  const poza=document.getElementById('f-poza').value;
+  const operario=document.getElementById('f-operario').value;
+  const fi=document.getElementById('f-fi').value;
+  const creal=parseFloat(document.getElementById('f-creal').value);
+  if(!poza){showFMsg('⚠ Selecciona la Poza','warn');return;}
+  if(!operario){showFMsg('⚠ Selecciona el Operario','warn');return;}
+  if(!fi){showFMsg('⚠ Ingresa la fecha de inicio','warn');return;}
+  if(isNaN(creal)||creal<=0){showFMsg('⚠ Ingresa las TM producidas','warn');return;}
+  const vend=document.getElementById('f-vend').value;
+  const vendVal=vend===''?null:parseFloat(vend);
+  if(vendVal!==null&&vendVal>creal){showFMsg('⚠ TM vendidas no puede superar TM producidas','err');return;}
+  const hi=document.getElementById('f-hi').value,ff=document.getElementById('f-ff').value,hf=document.getElementById('f-hf').value;
+  let horas=null;
+  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;if(d>0)horas=Math.round(d*100)/100;}
+  const maxId=RECORDS.reduce((m,r)=>Math.max(m,r.id||0),0);
+  const rec={
+    id:maxId+1,poza,operario,maquina:'Mykon N200VLD',producto:'Hielo en barra',
+    fecha_ini:fi,hora_ini:hi||'',fecha_fin:ff||'',hora_fin:hf||'',
+    cant_producir:parseFloat(document.getElementById('f-cprod').value)||creal,
+    cant_producida:creal,estado:document.getElementById('f-estado').value,
+    tc_ini:document.getElementById('f-tci').value!==''?parseFloat(document.getElementById('f-tci').value):null,
+    tc_fin:document.getElementById('f-tcf').value!==''?parseFloat(document.getElementById('f-tcf').value):null,
+    horas_prod:horas,observacion:document.getElementById('f-obs').value||'',
+    tm_vendidas:vendVal,tm_merma:vendVal!==null?Math.max(0,creal-vendVal):null
+  };
+  showFMsg('Guardando...','ok');
+  const ok=await apiAction({action:'save',record:JSON.stringify(rec)});
+  if(ok){toast('✅ Orden #'+rec.id+' guardada en Google Sheets','ok');limpiarForm();await loadData();switchTab('registros',document.querySelectorAll('.tab')[0]);}
+  else showFMsg('❌ Error al guardar','err');
+}
+
+function limpiarForm(){
+  ['f-poza','f-operario'].forEach(id=>document.getElementById(id).selectedIndex=0);
+  ['f-cprod','f-creal','f-vend','f-obs','f-horas','f-tci','f-tcf'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-estado').value='TERMINADO';
+  const now=new Date();
+  document.getElementById('f-fi').value=now.toISOString().split('T')[0];
+  document.getElementById('f-ff').value=now.toISOString().split('T')[0];
+  document.getElementById('f-hi').value=now.toTimeString().slice(0,5);
+  document.getElementById('f-hf').value=now.toTimeString().slice(0,5);
+  document.getElementById('f-merma-val').textContent='—';
+  document.getElementById('merma-fill').style.width='0%';
+  document.getElementById('form-msg').textContent='';
+}
+
+function showFMsg(txt,type){const el=document.getElementById('form-msg');el.textContent=txt;el.style.color=type==='ok'?'var(--ok)':type==='warn'?'var(--warn)':'var(--danger)';}
+
+/* ══ ELIMINAR ══ */
+async function confirmDelete(id){
+  if(!confirm('¿Eliminar orden #'+id+'?\nSe eliminará de Google Sheets.')) return;
+  const ok=await apiAction({action:'delete',id:String(id)});
+  if(ok){RECORDS=RECORDS.filter(r=>r.id!==id);applyFilters();updateKPIs();toast('🗑 Orden #'+id+' eliminada','warn');}
+}
+
+/* ══ MODAL ══ */
+function openModal(id){
+  const r=RECORDS.find(x=>x.id===id);if(!r)return;
+  editId=id;
+  document.getElementById('m-id').textContent='#'+id;
+  document.getElementById('m-poza').value=r.poza;
+  document.getElementById('m-operario').value=r.operario||'';
+  document.getElementById('m-fi').value=r.fecha_ini||'';
+  document.getElementById('m-hi').value=r.hora_ini||'';
+  document.getElementById('m-ff').value=r.fecha_fin||'';
+  document.getElementById('m-hf').value=r.hora_fin||'';
+  document.getElementById('m-horas').value=r.horas_prod?r.horas_prod.toFixed(2)+' h':'';
+  document.getElementById('m-estado').value=r.estado;
+  document.getElementById('m-tci').value=r.tc_ini!==null?r.tc_ini:'';
+  document.getElementById('m-tcf').value=r.tc_fin!==null?r.tc_fin:'';
+  document.getElementById('m-creal').value=r.cant_producida||'';
+  document.getElementById('m-vend').value=r.tm_vendidas!==null?r.tm_vendidas:'';
+  document.getElementById('m-merma').value=r.tm_merma!==null?r.tm_merma.toFixed(1)+' TM':'';
+  document.getElementById('m-obs').value=r.observacion||'';
+  calcModalMerma();
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');editId=null;}
+
+function calcModalHoras(){
+  const fi=document.getElementById('m-fi').value,hi=document.getElementById('m-hi').value;
+  const ff=document.getElementById('m-ff').value,hf=document.getElementById('m-hf').value;
+  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;document.getElementById('m-horas').value=d>0?d.toFixed(2)+' h':'—';}
+}
+
+function calcModalMerma(){
+  const prod=parseFloat(document.getElementById('m-creal').value);
+  const vend=parseFloat(document.getElementById('m-vend').value);
+  if(!isNaN(prod)&&!isNaN(vend)){
+    const m=Math.max(0,prod-vend);
+    document.getElementById('m-merma').value=m.toFixed(1)+' TM';
+    const ok=Math.abs((vend+m)-prod)<0.01;
+    document.getElementById('m-bal-eq').textContent=vend.toFixed(1)+' + '+m.toFixed(1)+' = '+(vend+m).toFixed(1);
+    document.getElementById('m-bal-hint').textContent=ok?'✅ Balance correcto':'⚠ Revisa los valores';
+    document.getElementById('m-bal-hint').style.color=ok?'var(--ok)':'var(--warn)';
+  } else {document.getElementById('m-merma').value='';document.getElementById('m-bal-eq').textContent='—';document.getElementById('m-bal-hint').textContent='—';}
+}
+
+async function saveModal(){
+  const r=RECORDS.find(x=>x.id===editId);if(!r)return;
+  const creal=parseFloat(document.getElementById('m-creal').value);
+  const vend=document.getElementById('m-vend').value;
+  const vendVal=vend===''?null:parseFloat(vend);
+  if(vendVal!==null&&!isNaN(creal)&&vendVal>creal){toast('⚠ TM vendidas no puede superar TM producidas','err');return;}
+  const fi=document.getElementById('m-fi').value,hi=document.getElementById('m-hi').value;
+  const ff=document.getElementById('m-ff').value,hf=document.getElementById('m-hf').value;
+  let horas=r.horas_prod;
+  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;if(d>0)horas=Math.round(d*100)/100;}
+  const updated={...r,
+    poza:document.getElementById('m-poza').value,operario:document.getElementById('m-operario').value,
+    fecha_ini:fi,hora_ini:hi,fecha_fin:ff,hora_fin:hf,horas_prod:horas,
+    estado:document.getElementById('m-estado').value,
+    tc_ini:document.getElementById('m-tci').value!==''?parseFloat(document.getElementById('m-tci').value):null,
+    tc_fin:document.getElementById('m-tcf').value!==''?parseFloat(document.getElementById('m-tcf').value):null,
+    cant_producida:!isNaN(creal)?creal:r.cant_producida,
+    tm_vendidas:vendVal,tm_merma:vendVal!==null?Math.max(0,(!isNaN(creal)?creal:r.cant_producida)-vendVal):null,
+    observacion:document.getElementById('m-obs').value,mes:fi?fi.slice(0,7):r.mes
+  };
+  const ok=await apiAction({action:'save',record:JSON.stringify(updated)});
+  if(ok){closeModal();toast('✅ Orden #'+editId+' actualizada','ok');await loadData();}
+}
+
+async function deleteFromModal(){
+  if(!confirm('¿Eliminar orden #'+editId+'?')) return;
+  const ok=await apiAction({action:'delete',id:String(editId)});
+  if(ok){RECORDS=RECORDS.filter(r=>r.id!==editId);closeModal();applyFilters();updateKPIs();toast('🗑 Eliminada','warn');}
+}
+
+/* ══ TABS ══ */
+function switchTab(id,el){
+  document.querySelectorAll('.tpage').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tpage-'+id).classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='produccion')renderProd();
+  if(id==='mermas')renderMerma();
+  if(id==='temperaturas')renderTemp();
+  if(id==='nueva')limpiarForm();
+}
+
+/* ══ GRÁFICOS ══ */
+function mkC(id,type,data,opts){if(CH[id])CH[id].destroy();CH[id]=new Chart(document.getElementById(id).getContext('2d'),{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},...opts}});}
+const sc={x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#272b44'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#272b44'}}};
+
+function renderProd(){
+  const t=RECORDS.filter(r=>r.estado==='TERMINADO');
+  const m=[...new Set(t.map(r=>r.mes).filter(Boolean).filter(m=>!m.startsWith('2023')))].sort();
+  const dsC=POZAS.map(p=>({label:p,data:t.filter(r=>r.poza===p&&r.horas_prod>0).map(r=>({x:r.id,y:r.horas_prod})),backgroundColor:COLORS[p]+'99',borderColor:COLORS[p],pointRadius:3,showLine:true,tension:0.3,borderWidth:1.5,fill:false}));
+  const ids=t.filter(r=>r.horas_prod>0).map(r=>r.id);
+  if(ids.length)dsC.push({label:'30h',data:[{x:Math.min(...ids),y:30},{x:Math.max(...ids),y:30}],borderColor:'#ef4444',borderWidth:1.5,borderDash:[4,3],pointRadius:0,showLine:true,fill:false,tension:0});
+  mkC('ch-ciclo','scatter',{datasets:dsC},{scales:sc});
+  document.getElementById('b-ciclo').textContent=t.filter(r=>r.horas_prod>0).length+' ciclos';
+  mkC('ch-mes','bar',{labels:m.map(FM),datasets:POZAS.map(p=>({label:p,data:m.map(mx=>t.filter(r=>r.poza===p&&r.mes===mx).reduce((s,r)=>s+(r.cant_producida||0),0)),backgroundColor:COLORS[p]+'bb',borderColor:COLORS[p],borderWidth:1,borderRadius:3}))},{scales:{...sc,y:{...sc.y,title:{display:true,text:'TM',color:'#64748b',font:{size:10}}}}});
+  document.getElementById('b-mes').textContent=m.length+' meses';
+  mkC('ch-desv','bar',{labels:POZAS.map(p=>LBL[p]),datasets:[
+    {label:'<24h',data:POZAS.map(p=>t.filter(r=>r.poza===p&&r.horas_prod>0&&r.horas_prod<24).length),backgroundColor:'#22c55ebb',borderColor:'#22c55e',borderWidth:1,borderRadius:3},
+    {label:'24-30h',data:POZAS.map(p=>t.filter(r=>r.poza===p&&r.horas_prod>=24&&r.horas_prod<=30).length),backgroundColor:'#f59e0bbb',borderColor:'#f59e0b',borderWidth:1,borderRadius:3},
+    {label:'>30h',data:POZAS.map(p=>t.filter(r=>r.poza===p&&r.horas_prod>30).length),backgroundColor:'#ef4444bb',borderColor:'#ef4444',borderWidth:1,borderRadius:3}]},
+    {scales:{x:{stacked:true,...sc.x},y:{stacked:true,...sc.y}}});
+  const v=POZAS.map(p=>t.filter(r=>r.poza===p).reduce((s,r)=>s+(r.cant_producida||0),0));
+  if(CH['ch-poza'])CH['ch-poza'].destroy();
+  CH['ch-poza']=new Chart(document.getElementById('ch-poza').getContext('2d'),{type:'doughnut',data:{labels:POZAS.map(p=>LBL[p]),datasets:[{data:v,backgroundColor:POZAS.map(p=>COLORS[p]+'cc'),borderColor:POZAS.map(p=>COLORS[p]),borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}},cutout:'60%'}});
+}
+
+function renderMerma(){
+  const t=RECORDS.filter(r=>r.estado==='TERMINADO'),wv=t.filter(r=>r.tm_vendidas!==null);
+  const m=[...new Set(t.map(r=>r.mes).filter(Boolean).filter(m=>!m.startsWith('2023')))].sort();
+  mkC('ch-comp','bar',{labels:POZAS.map(p=>LBL[p]),datasets:[
+    {label:'Producidas',data:POZAS.map(p=>wv.filter(r=>r.poza===p).reduce((s,r)=>s+(r.cant_producida||0),0)),backgroundColor:'#1e2d45',borderColor:'#334155',borderWidth:1,borderRadius:2},
+    {label:'Vendidas',data:POZAS.map(p=>wv.filter(r=>r.poza===p).reduce((s,r)=>s+(r.tm_vendidas||0),0)),backgroundColor:'#22c55ebb',borderColor:'#22c55e',borderWidth:1.5,borderRadius:2},
+    {label:'Merma',data:POZAS.map(p=>wv.filter(r=>r.poza===p).reduce((s,r)=>s+(r.tm_merma||0),0)),backgroundColor:'#f97316bb',borderColor:'#f97316',borderWidth:1.5,borderRadius:2}]},
+    {plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{size:10}},position:'bottom'}},scales:sc});
+  document.getElementById('b-comp').textContent=wv.length?wv.length+' ciclos':'sin datos';
+  const ap=POZAS.map(p=>{const pts=wv.filter(r=>r.poza===p);if(!pts.length)return null;const tp=pts.reduce((s,r)=>s+(r.cant_producida||0),0),tv=pts.reduce((s,r)=>s+(r.tm_vendidas||0),0);return tp>0?Math.round(tv/tp*1000)/10:null;});
+  mkC('ch-apro','bar',{labels:POZAS.map(p=>LBL[p]),datasets:[{label:'%',data:ap,backgroundColor:ap.map(v=>v===null?'#1e2d45':v>=90?'#22c55ebb':v>=70?'#f59e0bbb':'#ef4444bb'),borderColor:ap.map(v=>v===null?'#1e2d45':v>=90?'#22c55e':v>=70?'#f59e0b':'#ef4444'),borderWidth:1.5,borderRadius:4}]},{scales:{x:sc.x,y:{...sc.y,min:0,max:100,ticks:{color:'#64748b',callback:v=>v+'%'}}}});
+  mkC('ch-mmes','bar',{labels:m.map(FM),datasets:POZAS.map(p=>({label:p,data:m.map(mx=>wv.filter(r=>r.poza===p&&r.mes===mx).reduce((s,r)=>s+(r.tm_merma||0),0)),backgroundColor:COLORS[p]+'bb',borderColor:COLORS[p],borderWidth:1,borderRadius:3}))},{scales:sc});
+  document.getElementById('b-mmes').textContent=wv.length?wv.reduce((s,r)=>s+(r.tm_merma||0),0).toFixed(0)+' TM':'sin datos';
+  mkC('ch-trend','line',{labels:m.map(FM),datasets:POZAS.map(p=>({label:p,data:m.map(mx=>{const pts=wv.filter(r=>r.poza===p&&r.mes===mx);if(!pts.length)return null;const tp=pts.reduce((s,r)=>s+(r.cant_producida||0),0),tv=pts.reduce((s,r)=>s+(r.tm_vendidas||0),0);return tp>0?Math.round(tv/tp*1000)/10:null;}),borderColor:COLORS[p],backgroundColor:COLORS[p]+'22',pointBackgroundColor:COLORS[p],pointRadius:4,tension:0.3,borderWidth:2,fill:false}))},{scales:{x:sc.x,y:{...sc.y,min:0,max:100,ticks:{color:'#64748b',callback:v=>v+'%'}}}});
+}
+
+function renderTemp(){
+  const t=RECORDS.filter(r=>r.estado==='TERMINADO');
+  const m=[...new Set(t.map(r=>r.mes).filter(Boolean).filter(m=>!m.startsWith('2023')))].sort();
+  mkC('ch-temp','bar',{labels:POZAS.map(p=>LBL[p]),datasets:[
+    {label:'T° Inicio',data:POZAS.map(p=>avg(t.filter(r=>r.poza===p&&r.tc_ini!==null).map(r=>r.tc_ini))),backgroundColor:POZAS.map(p=>COLORS[p]+'cc'),borderColor:POZAS.map(p=>COLORS[p]),borderWidth:1.5,borderRadius:4},
+    {label:'T° Final',data:POZAS.map(p=>avg(t.filter(r=>r.poza===p&&r.tc_fin!==null&&r.tc_fin<0).map(r=>r.tc_fin))),backgroundColor:POZAS.map(p=>COLORS[p]+'44'),borderColor:POZAS.map(p=>COLORS[p]+'88'),borderWidth:1.5,borderRadius:4}]},
+    {plugins:{legend:{display:true,labels:{color:'#94a3b8',font:{size:10}},position:'bottom'}},scales:{x:sc.x,y:{...sc.y,ticks:{color:'#64748b',callback:v=>v+'°C'}}}});
+  mkC('ch-delta','line',{labels:m.map(FM),datasets:POZAS.map(p=>({label:p,data:m.map(mx=>{const v=t.filter(r=>r.poza===p&&r.mes===mx&&r.tc_ini!==null&&r.tc_fin!==null&&r.tc_fin<0).map(r=>r.tc_fin-r.tc_ini);return v.length?avg(v):null;}),borderColor:COLORS[p],backgroundColor:COLORS[p]+'22',pointBackgroundColor:COLORS[p],pointRadius:4,tension:0.3,borderWidth:2,fill:false}))},{scales:{x:sc.x,y:{...sc.y,ticks:{color:'#64748b',callback:v=>v+'°'}}}});
+}
+
+/* ══ TOAST ══ */
+let tT;
+function toast(msg,type='ok'){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+type;clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),4000);}
+
+/* ══ INIT ══ */
+(function(){const now=new Date(),d=now.toISOString().split('T')[0],hm=now.toTimeString().slice(0,5);
+['f-fi','f-ff'].forEach(id=>document.getElementById(id).value=d);
+['f-hi','f-hf'].forEach(id=>document.getElementById(id).value=hm);})();
+loadData();
+</script>
+</body>
+</html>
