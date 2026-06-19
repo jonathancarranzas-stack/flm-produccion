@@ -538,10 +538,20 @@ function updateKPIs() {
 }
 
 /* ══ FORMULARIO ══ */
+function normDateStr(d){
+  if(!d)return'';
+  // Convert DD/MM/YYYY to YYYY-MM-DD
+  if(d.includes('/')){ const p=d.split('/'); if(p.length===3&&p[2].length===4) return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); }
+  return d;
+}
 function calcHoras(){
-  const fi=document.getElementById('f-fi').value,hi=document.getElementById('f-hi').value;
-  const ff=document.getElementById('f-ff').value,hf=document.getElementById('f-hf').value;
-  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;document.getElementById('f-horas').value=d>0?d.toFixed(2)+' h':'—';}
+  const fi=normDateStr(document.getElementById('f-fi').value), hi=document.getElementById('f-hi').value;
+  const ff=normDateStr(document.getElementById('f-ff').value), hf=document.getElementById('f-hf').value;
+  if(fi&&hi&&ff&&hf){
+    const dtI=new Date(fi+'T'+hi+':00'), dtF=new Date(ff+'T'+hf+':00');
+    const d=(dtF-dtI)/3600000;
+    document.getElementById('f-horas').value=d>0?d.toFixed(2)+' h':'—';
+  }
 }
 
 function calcMerma(){
@@ -574,7 +584,7 @@ async function guardarOrden(){
   if(vendVal!==null&&vendVal>creal){showFMsg('⚠ TM vendidas no puede superar TM producidas','err');return;}
   const hi=document.getElementById('f-hi').value,ff=document.getElementById('f-ff').value,hf=document.getElementById('f-hf').value;
   let horas=null;
-  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;if(d>0)horas=Math.round(d*100)/100;}
+  if(fi&&hi&&ff&&hf){const dtI=new Date(normDateStr(fi)+'T'+hi+':00'),dtF=new Date(normDateStr(ff)+'T'+hf+':00');const d=(dtF-dtI)/3600000;if(d>0)horas=Math.round(d*100)/100;}
   const maxId=RECORDS.reduce((m,r)=>Math.max(m,r.id||0),0);
   const rec={
     id:maxId+1,poza,operario,maquina:'Mykon N200VLD',producto:'Hielo en barra',
@@ -641,9 +651,13 @@ function openModal(id){
 function closeModal(){document.getElementById('modal').classList.remove('open');editId=null;}
 
 function calcModalHoras(){
-  const fi=document.getElementById('m-fi').value,hi=document.getElementById('m-hi').value;
-  const ff=document.getElementById('m-ff').value,hf=document.getElementById('m-hf').value;
-  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;document.getElementById('m-horas').value=d>0?d.toFixed(2)+' h':'—';}
+  const fi=normDateStr(document.getElementById('m-fi').value), hi=document.getElementById('m-hi').value;
+  const ff=normDateStr(document.getElementById('m-ff').value), hf=document.getElementById('m-hf').value;
+  if(fi&&hi&&ff&&hf){
+    const dtI=new Date(fi+'T'+hi+':00'), dtF=new Date(ff+'T'+hf+':00');
+    const d=(dtF-dtI)/3600000;
+    document.getElementById('m-horas').value=d>0?d.toFixed(2)+' h':'—';
+  }
 }
 
 function calcModalMerma(){
@@ -668,7 +682,7 @@ async function saveModal(){
   const fi=document.getElementById('m-fi').value,hi=document.getElementById('m-hi').value;
   const ff=document.getElementById('m-ff').value,hf=document.getElementById('m-hf').value;
   let horas=r.horas_prod;
-  if(fi&&hi&&ff&&hf){const d=(new Date(ff+'T'+hf)-new Date(fi+'T'+hi))/3600000;if(d>0)horas=Math.round(d*100)/100;}
+  if(fi&&hi&&ff&&hf){const dtI=new Date(normDateStr(fi)+'T'+hi+':00'),dtF=new Date(normDateStr(ff)+'T'+hf+':00');const d=(dtF-dtI)/3600000;if(d>0)horas=Math.round(d*100)/100;}
   const updated={...r,
     poza:document.getElementById('m-poza').value,operario:document.getElementById('m-operario').value,
     fecha_ini:fi,hora_ini:hi,fecha_fin:ff,hora_fin:hf,horas_prod:horas,
